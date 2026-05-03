@@ -21,9 +21,10 @@ GOOGLE_API_KEY=your_key_here
 ## Usage
 
 ```
-Kubernetes AI Agent Initialized
+🤖 Kubernetes AI Agent Initialized
 
-What should I do? (or 'exit'): create a deployment named web-app with nginx image and 3 replicas
+💡 What should I do? (or 'exit'): create a deployment named web-app with nginx image and 3 replicas
+
 ```
 
 The agent supports:
