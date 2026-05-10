@@ -136,6 +136,26 @@ The repo ships with three GitHub Actions workflows:
 | [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) | Every PR + manual dispatch | Spin up a `kind` cluster, install dependencies, run pytest E2E tests against the cluster |
 | [`.github/workflows/release.yml`](.github/workflows/release.yml) | Tag push matching `v*.*.*` | Build a multi-arch (amd64+arm64) image, push to Docker Hub with `vX.Y.Z`, `vX.Y`, and `latest` tags, and create a GitHub Release |
 
+### When does the image get published to Docker Hub?
+
+**Only when you push a git tag matching `v*.*.*`.** Pushing changes to `master` (including Dockerfile changes) only runs CI — it builds the image to verify the build works, but does **not** publish it. This is intentional: you decide when to cut a release.
+
+| You do this | What happens |
+|---|---|
+| `git push origin master` (with Dockerfile/code changes) | CI runs: lint, tests, Docker build, Trivy scan. **No publish.** |
+| `git push origin v1.2.3` (tag matching `v*.*.*`) | Release runs: multi-arch build, push to Docker Hub as `:v1.2.3` + `:v1.2` + `:latest`, create GitHub Release. |
+| Open a PR to `master` | CI + E2E runs. **No publish.** |
+
+So the typical workflow after changing the Dockerfile is:
+
+```bash
+git add Dockerfile
+git commit -m "Bump kubectl to v1.37.0"
+git push origin master            # CI verifies the build
+git tag v1.1.1                    # cut a release
+git push origin v1.1.1            # NOW the new image lands on Docker Hub
+```
+
 ### One-time setup: Docker Hub secrets
 
 The release workflow needs credentials to push to Docker Hub.
