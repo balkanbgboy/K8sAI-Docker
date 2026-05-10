@@ -35,7 +35,7 @@ chmod 600 /root/.env
 **3. Add a `k8sai` shortcut to your shell** (so you don't retype the full `docker run` line every time):
 ```bash
 cat >> /root/.bashrc << 'EOF'
-k8sai() { docker run --rm -it --network host -v /root/.kube/config:/root/.kube/config:ro -v "$(pwd)/k8s:/k8s" --env-file /root/.env balkanbgboy/k8s-ai-agent:v1.0; }
+k8sai() { docker run --rm -it --network host -v /root/.kube/config:/root/.kube/config:ro -v "$(pwd)/k8s:/k8s" --env-file /root/.env balkanbgboy/k8s-ai-agent:latest; }
 EOF
 source /root/.bashrc
 ```
@@ -56,7 +56,7 @@ docker run --rm -it --network host \
   -v /root/.kube/config:/root/.kube/config:ro \
   -v "$(pwd)/k8s:/k8s" \
   --env-file /root/.env \
-  balkanbgboy/k8s-ai-agent:v1.0
+  balkanbgboy/k8s-ai-agent:latest
 ```
 
 | Flag | Why |
@@ -113,7 +113,7 @@ After a successful run, the manifests sit in `./k8s/` and can be reapplied with 
 ```bash
 git clone https://github.com/balkanbgboy/k8s-ai-agent
 cd k8s-ai-agent
-docker build -t balkanbgboy/k8s-ai-agent:v1.0 .
+docker build -t balkanbgboy/k8s-ai-agent:latest .
 k8sai
 ```
 
@@ -191,9 +191,9 @@ pytest -m e2e                # integration tests (need a real cluster on $KUBECO
 ## Security Notes
 - `.env` is excluded from the Docker build context via `.dockerignore` — your API key is **never** baked into the published image.
 - The container runs as `root` to keep `/root/.kube/config` readable. For multi-tenant or production use, switch back to a non-root user and remount the kubeconfig under that user's home.
-- The published image at `balkanbgboy/k8s-ai-agent:v1.0` carries no credentials. Verify with:
+- The published image at `balkanbgboy/k8s-ai-agent:latest` carries no credentials. Verify with:
   ```bash
-  docker history --no-trunc balkanbgboy/k8s-ai-agent:v1.0 | grep -iE 'api|key|secret|token'
+  docker history --no-trunc balkanbgboy/k8s-ai-agent:latest | grep -iE 'api|key|secret|token'
   ```
 
 ## Troubleshooting
@@ -202,7 +202,7 @@ pytest -m e2e                # integration tests (need a real cluster on $KUBECO
 Container isn't seeing the kubeconfig. Confirm `/root/.kube/config` exists on the host and the `-v` mount in your run command is correct.
 
 **`[Errno 2] No such file or directory: 'kubectl'`**
-You're running an old image built before kubectl was added. Rebuild: `docker build -t balkanbgboy/k8s-ai-agent:v1.0 .`.
+You're running an old image built before kubectl was added. Rebuild: `docker build -t balkanbgboy/k8s-ai-agent:latest .`.
 
 **`API key required for Gemini Developer API`**
 `/root/.env` is missing or empty. Check `cat /root/.env` — it must contain `GOOGLE_API_KEY=...`.
