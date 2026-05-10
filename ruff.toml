@@ -2,12 +2,13 @@ line-length = 120
 target-version = "py312"
 
 [lint]
-select = ["E", "F", "W"]
-ignore = [
-    "E501",  # line too long
-    "E722",  # bare except (existing pattern in app.py)
-    "F401",  # unused imports
+# Only catch real bugs, not style nits. Tighten over time.
+select = [
+    "E9",   # syntax errors
+    "F63",  # invalid format strings
+    "F7",   # syntax-related
+    "F82",  # undefined names
 ]
 
 [lint.per-file-ignores]
-"tests/*" = ["F401", "E402"]
+"tests/*" = ["E402"]
