@@ -4,6 +4,7 @@ A Python AI agent powered by Google Gemini that creates Kubernetes Deployments a
 
 ## Features
 - Natural-language deployment and service creation
+- Namespace-aware: agent always asks for the target namespace and auto-creates it if it doesn't exist
 - Manifests saved as YAML files on the host (auditable, reapplyable, committable)
 - `kubectl` baked into the image — no client install required on the host
 - Multi-stage Docker build (~734 MB)
@@ -67,18 +68,33 @@ docker run --rm -it --network host \
 
 ## Usage
 
+Before creating any deployment or service, the agent **always asks which namespace to use** — `default` or a different one. If you pick a different namespace, it asks for the name and creates it automatically before applying the workload.
+
+### Default namespace
 ```
 🤖 Kubernetes AI Agent Initialized
 
 💡 What should I do? (or 'exit'): create a deployment named web-app with nginx image and 3 replicas
+Agent: Should I deploy this to the 'default' namespace or a different one?
 
+💡 default
 Agent Output:
  Saved manifest: /k8s/web-app-deployment.yaml
  deployment.apps/web-app created
+```
 
-💡 What should I do? (or 'exit'): create a service for web-app on port 80 type NodePort
+### Custom namespace (auto-created)
+```
+💡 create a service for web-app on port 80 type NodePort
+Agent: Should I create this in the 'default' namespace or a different one?
 
+💡 different
+Agent: What is the name of the namespace?
+
+💡 staging
 Agent Output:
+ Namespace manifest: /k8s/staging-namespace.yaml
+ namespace/staging created
  Saved manifest: /k8s/web-app-svc-service.yaml
  service/web-app-svc created
 ```
@@ -86,8 +102,11 @@ Agent Output:
 The agent supports:
 - **Deployments** — `create a deployment named <name> with <image> image and <n> replicas`
 - **Services** — `create a service for <name> on port <port> type <ClusterIP|NodePort|LoadBalancer>`
+- **Namespaces** — auto-created on demand whenever a non-default namespace is chosen
 
-After a successful run, the manifests sit in `./k8s/` and can be reapplied with plain `kubectl apply -f ./k8s/`.
+You can also volunteer the namespace upfront, e.g. `create a deployment named web-app with nginx in the staging namespace` — the agent will still confirm before applying.
+
+After a successful run, the manifests sit in `./k8s/` and can be reapplied with plain `kubectl apply -f ./k8s/` (kubectl applies in alphabetical order, and namespace creation is idempotent, so the whole stack is safe to reapply).
 
 ## Build Locally
 
