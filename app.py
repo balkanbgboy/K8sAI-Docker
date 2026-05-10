@@ -221,11 +221,21 @@ def create_service(tool_input: str) -> str:
     return f"{ns_result}Saved manifest: {path}\n{apply_result}"
 
 
-tools = [create_deployment, create_service]
+_should_exit = False
+
+@tool
+def exit_program(tool_input: str = "") -> str:
+    """End the session and exit the program. Call this whenever the user signals they want to leave the conversation, e.g. 'exit', 'quit', 'bye', 'goodbye', 'go away', 'stop', 'I'm done', 'see you', 'that's all'. Confirm briefly before exiting."""
+    global _should_exit
+    _should_exit = True
+    return "Exiting the agent. Goodbye!"
+
+
+tools = [create_deployment, create_service, exit_program]
 
 # Prompt
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant that creates Kubernetes deployments and services. Before creating any deployment or service, first ask the user whether to deploy to the 'default' namespace or a different one. If they pick a different namespace, ask them for its exact name. The chosen namespace will be created automatically if it does not already exist. Never assume a namespace without asking."),
+    ("system", "You are a helpful assistant that creates Kubernetes deployments and services. Before creating any deployment or service, first ask the user whether to deploy to the 'default' namespace or a different one. If they pick a different namespace, ask them for its exact name. The chosen namespace will be created automatically if it does not already exist. Never assume a namespace without asking. If the user signals they want to leave the conversation (e.g. 'go away', 'bye', 'goodbye', 'stop', 'I'm done', 'that's all'), call the exit_program tool to end the session cleanly."),
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{input}"),
     MessagesPlaceholder(variable_name="agent_scratchpad"),
@@ -274,6 +284,9 @@ if __name__ == "__main__":
 
             chat_history.append(HumanMessage(content=user_input))
             chat_history.append(AIMessage(content=output_text))
+
+            if _should_exit:
+                break
 
                                                       
                                                       
