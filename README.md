@@ -126,6 +126,48 @@ k8sai
 | `K8S_OUTPUT_DIR` | `/k8s` | Where YAML manifests are written inside the container |
 | `KUBECTL` | _(auto-discovered)_ | Override kubectl binary path |
 
+## CI/CD
+
+The repo ships with three GitHub Actions workflows:
+
+| Workflow | Triggers | What it does |
+|---|---|---|
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Every push/PR to `master` | Lint with ruff, run unit tests, build the Docker image, scan with Trivy |
+| [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) | Every PR + manual dispatch | Spin up a `kind` cluster, install dependencies, run pytest E2E tests against the cluster |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Tag push matching `v*.*.*` | Build a multi-arch (amd64+arm64) image, push to Docker Hub with `vX.Y.Z`, `vX.Y`, and `latest` tags, and create a GitHub Release |
+
+### One-time setup: Docker Hub secrets
+
+The release workflow needs credentials to push to Docker Hub.
+
+**1. Create an access token** (do **not** use your account password):
+- Log into https://hub.docker.com → your avatar → **Account Settings** → **Personal access tokens** → **Generate new token**.
+- Description: `github-actions-k8sai`. Permissions: **Read & Write**.
+- Copy the token — Hub only shows it once.
+
+**2. Add the secrets to GitHub:**
+- Go to https://github.com/balkanbgboy/K8sAI-Docker/settings/secrets/actions
+- Click **New repository secret** twice and add:
+  - `DOCKERHUB_USERNAME` → `balkanbgboy`
+  - `DOCKERHUB_TOKEN` → the token from step 1
+
+### Cutting a release
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+The release workflow runs, publishes `balkanbgboy/k8s-ai-agent:v1.1.0`, `:v1.1`, and `:latest` to Docker Hub, and creates a GitHub Release page with auto-generated notes.
+
+### Running tests locally
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest -m "not e2e"          # unit tests only
+pytest -m e2e                # integration tests (need a real cluster on $KUBECONFIG)
+```
+
 ## Security Notes
 - `.env` is excluded from the Docker build context via `.dockerignore` — your API key is **never** baked into the published image.
 - The container runs as `root` to keep `/root/.kube/config` readable. For multi-tenant or production use, switch back to a non-root user and remount the kubeconfig under that user's home.
