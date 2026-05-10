@@ -1,5 +1,5 @@
 import subprocess
-import tempfile
+import shutil
 import yaml
 import os
 from dotenv import load_dotenv
@@ -7,6 +7,7 @@ from langchain_core.tools import tool, BaseTool
 from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
 
 load_dotenv()
 
@@ -41,15 +42,50 @@ def generate_deployment_yaml(name: str, image: str, replicas: int = 1, namespace
     }
     return yaml.dump(deployment, default_flow_style=False)
 
-def apply_yaml(yaml_content: str):
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+def _kubectl_env():
+    env = os.environ.copy()
+    extra_paths = ["/usr/local/bin", "/usr/bin", "/snap/bin"]
+    env["PATH"] = ":".join([env.get("PATH", "")] + extra_paths).strip(":")
+    if not env.get("KUBECONFIG"):
+        for candidate in ("/root/.kube/config", os.path.expanduser("~/.kube/config")):
+            if os.path.isfile(candidate):
+                env["KUBECONFIG"] = candidate
+                break
+    return env
+
+def _kubectl_bin():
+    explicit = os.environ.get("KUBECTL")
+    if explicit and os.path.isfile(explicit):
+        return explicit
+    found = shutil.which("kubectl")
+    if found:
+        return found
+    for candidate in ("/usr/local/bin/kubectl", "/usr/bin/kubectl", "/snap/bin/kubectl"):
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+K8S_OUTPUT_DIR = os.environ.get("K8S_OUTPUT_DIR", "/k8s")
+
+def save_yaml(yaml_content: str, filename: str) -> str:
+    os.makedirs(K8S_OUTPUT_DIR, exist_ok=True)
+    path = os.path.join(K8S_OUTPUT_DIR, filename)
+    with open(path, "w") as f:
         f.write(yaml_content)
-        temp_file = f.name
-        
-    cmd = ["kubectl", "apply", "-f", temp_file]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    os.unlink(temp_file)
-    return result.stdout if result.returncode == 0 else result.stderr
+    return path
+
+def apply_yaml_file(path: str) -> str:
+    kubectl = _kubectl_bin()
+    if not kubectl:
+        return "kubectl not found on PATH. Set the KUBECTL env var to its absolute path, or install kubectl in this environment."
+
+    result = subprocess.run(
+        [kubectl, "apply", "-f", path],
+        capture_output=True, text=True, env=_kubectl_env(),
+    )
+    if result.returncode != 0:
+        return f"kubectl failed (rc={result.returncode}):\nSTDERR: {result.stderr.strip()}\nSTDOUT: {result.stdout.strip()}"
+    return result.stdout
             
                             
 
@@ -117,7 +153,9 @@ def create_deployment(tool_input: str) -> str:
         raise ValueError("Both 'name' and 'image' must be provided to create a deployment.")
 
     yaml_content = generate_deployment_yaml(name, image, replicas)
-    return apply_yaml(yaml_content)
+    path = save_yaml(yaml_content, f"{name}-deployment.yaml")
+    apply_result = apply_yaml_file(path)
+    return f"Saved manifest: {path}\n{apply_result}"
 
 
 @tool
@@ -151,7 +189,9 @@ def create_service(tool_input: str) -> str:
         raise ValueError("A 'name' must be provided to create a service.")
 
     yaml_content = generate_service_yaml(name, port=port, target_port=target_port, service_type=service_type)
-    return apply_yaml(yaml_content)
+    path = save_yaml(yaml_content, f"{name}-service.yaml")
+    apply_result = apply_yaml_file(path)
+    return f"Saved manifest: {path}\n{apply_result}"
 
 
 tools = [create_deployment, create_service]
@@ -166,24 +206,47 @@ prompt = ChatPromptTemplate.from_messages([
 
 # Construct Agent
 agent = create_tool_calling_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False, handle_parsing_errors=True)
+
+def format_output(output):
+    if isinstance(output, str):
+        return output
+    if isinstance(output, dict):
+        return output.get("text") or output.get("content") or str(output)
+    if isinstance(output, list):
+        parts = []
+        for item in output:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text") or item.get("content")
+                if text:
+                    parts.append(text)
+        joined = "\n".join(p for p in parts if p)
+        return joined if joined else str(output)
+    return str(output)
 
 if __name__ == "__main__":
     print("🤖 Kubernetes AI Agent Initialized")
-    
+
+    chat_history = []
 
     while True:
         try:
             user_input = input("\n💡 What should I do? (or 'exit'): ").strip()
             if user_input.lower() in ["exit", "quit"]:
                 break
-                
+
             result = agent_executor.invoke({
                 "input": user_input,
-                "chat_history": []
+                "chat_history": chat_history,
             })
-                                     
-            print("\nAgent Output:\n", result["output"])
+
+            output_text = format_output(result["output"])
+            print("\nAgent Output:\n", output_text)
+
+            chat_history.append(HumanMessage(content=user_input))
+            chat_history.append(AIMessage(content=output_text))
 
                                                       
                                                       
