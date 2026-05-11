@@ -111,7 +111,7 @@ After a successful run, the manifests sit in `./k8s/` and can be reapplied with 
 ## Build Locally
 
 ```bash
-git clone https://github.com/balkanbgboy/k8s-ai-agent
+git clone https://github.com/imadol-ccie/K8s-AI-Agent
 cd k8s-ai-agent
 docker build -t balkanbgboy/k8s-ai-agent:latest .
 k8sai
@@ -166,7 +166,7 @@ The release workflow needs credentials to push to Docker Hub.
 - Copy the token — Hub only shows it once.
 
 **2. Add the secrets to GitHub:**
-- Go to https://github.com/balkanbgboy/K8sAI-Docker/settings/secrets/actions
+- Go to https://github.com/imadol-ccie/K8sAI-Docker/settings/secrets/actions
 - Click **New repository secret** twice and add:
   - `DOCKERHUB_USERNAME` → `balkanbgboy`
   - `DOCKERHUB_TOKEN` → the token from step 1
@@ -211,4 +211,4 @@ You're running an old image built before kubectl was added. Rebuild: `docker bui
 The chat history must be preserved across turns. If you forked the code, ensure `chat_history` is appended after each `agent_executor.invoke(...)` call.
 
 ## Contributors
-- balkanbgboy
+- imadol-ccie
